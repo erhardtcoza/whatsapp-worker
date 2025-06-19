@@ -34,14 +34,22 @@ export default {
         return new Response('Failed to send message: ' + (json.error?.message || 'Unknown error'), { status: 500 });
       }
     }
+    
+if (pathname === '/admin/messages') {
+  const messages = await env.DB.prepare(
+    `SELECT * FROM messages ORDER BY timestamp DESC LIMIT 300`
+  ).all();
 
-    // List messages
-    if (pathname === '/admin/messages') {
-      const messages = await env.DB.prepare(
-        `SELECT * FROM messages ORDER BY timestamp DESC LIMIT 100`
-      ).all();
-      return Response.json(messages.results);
-    }
+  // Group by from_number
+  const grouped = {};
+  for (const m of messages.results) {
+    if (!grouped[m.from_number]) grouped[m.from_number] = [];
+    grouped[m.from_number].push(m);
+  }
+
+  return Response.json(grouped);
+}
+
 
     // Tag messages
     if (pathname === '/admin/tag' && request.method === 'POST') {

@@ -1,22 +1,19 @@
 name = "vinet-whatsapp-worker"
 main = "src/index.js"
-compatibility_date = "2024-06-01"
+compatibility_date = "2025-06-19"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "vinet-whatsapp-db"
 database_id = "2e1228d6-b6f6-494e-b4de-9cdd508854a0"
 
+[[kv_namespaces]]
+binding = "__vinet-whatsapp-worker-workers_sites_assets"
+id = "b6f6282ab5874ebfba0aa6600771bf8e"
+
 [[r2_buckets]]
 binding = "vinet-whatsapp-images"
 bucket_name = "vinet-whatsapp-images"
-
-[[kv_namespaces]]
-binding = "__vinet-whatsapp-worker-workers_sites_assets "
-id = "b6f6282ab5874ebfba0aa6600771bf8e"
-
-[site]
-bucket = "./public"
 
 [vars]
 PHONE_NUMBER_ID = "104043025887306"

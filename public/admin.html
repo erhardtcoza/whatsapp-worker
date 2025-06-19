@@ -2,59 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vinet Admin Portal</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { font-family: sans-serif; padding: 2rem; background: #f9f9f9; }
     h1 { color: #b00; }
-    input, select, textarea, button { margin: 0.3rem; padding: 0.5rem; font-size: 1rem; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #ccc; padding: 0.5rem; }
     th { background: #eee; }
-    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
-    .card { background: #fff; padding: 1rem; border: 1px solid #ddd; border-radius: 5px; flex: 1; min-width: 300px; }
-    .flex { display: flex; align-items: center; gap: 0.5rem; }
+    select, input[type="text"], button {
+      padding: 0.5rem; margin: 0.3rem;
+    }
   </style>
 </head>
 <body>
   <h1>Vinet WhatsApp Admin Portal</h1>
-
-  <div class="row">
-    <div class="card">
-      <h3>Send Message</h3>
-      <div class="flex">
-        <label>To:</label><input type="text" id="to" placeholder="Phone Number" />
-      </div>
-      <textarea id="message" placeholder="Type your message..." rows="3" cols="40"></textarea><br />
-      <button onclick="sendMessage()">Send</button>
-    </div>
-
-    <div class="card">
-      <h3>Auto-Replies Settings</h3>
-      <div id="settings">
-        <p>Coming next step…</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Messages</h3>
-    <label>Filter by tag:</label>
-    <select id="tagFilter" onchange="loadMessages()">
-      <option value="">All</option>
-      <option value="support">Support</option>
-      <option value="sales">Sales</option>
-      <option value="accounts">Accounts</option>
-      <option value="lead">Lead</option>
-    </select>
-    <div id="messages">Loading...</div>
-  </div>
+  <div id="messages">Loading...</div>
 
   <script>
     async function loadMessages() {
-      const tag = document.getElementById('tagFilter').value
-      const res = await fetch('/admin/messages' + (tag ? '?tag=' + tag : ''))
-      const messages = await res.json()
+      const res = await fetch('/admin/messages');
+      const messages = await res.json();
       const html = '<table><tr><th>From</th><th>Body</th><th>Tag</th><th>Time</th></tr>' +
         messages.map(m => `
           <tr>
@@ -62,15 +30,15 @@
             <td>${m.body}</td>
             <td>
               <select onchange="updateTag('${m.id}', this.value)">
-                ${['support','sales','accounts','lead',''].map(tag =>
-                  `<option value="${tag}" ${tag === m.tag ? 'selected' : ''}>${tag || 'none'}</option>`
-                ).join('')}
+                ${['none','support','sales','accounts','lead'].map(tag => `
+                  <option value="${tag}" ${tag === m.tag ? 'selected' : ''}>${tag}</option>
+                `).join('')}
               </select>
             </td>
             <td>${new Date(m.timestamp).toLocaleString()}</td>
           </tr>
-        `).join('') + '</table>'
-      document.getElementById('messages').innerHTML = html
+        `).join('') + '</table>';
+      document.getElementById('messages').innerHTML = html;
     }
 
     async function updateTag(id, tag) {
@@ -78,26 +46,10 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, tag })
-      })
+      });
     }
 
-    async function sendMessage() {
-      const to = document.getElementById('to').value.trim()
-      const message = document.getElementById('message').value.trim()
-      if (!to || !message) return alert('Please fill in both fields.')
-
-      const res = await fetch('/admin/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, message })
-      })
-      const out = await res.json()
-      alert(out?.error?.message || 'Message sent.')
-      document.getElementById('message').value = ''
-      loadMessages()
-    }
-
-    loadMessages()
+    loadMessages();
   </script>
 </body>
 </html>

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vinet Admin Portal</title>
+</head>
+<body>
+  <h1>Vinet WhatsApp Admin Portal</h1>
+  <div id="messages">Loading...</div>
+  <script>
+    async function fetchMessages() {
+      const res = await fetch('/admin/messages');
+      const messages = await res.json();
+      document.getElementById('messages').innerHTML =
+        '<ul>' + messages.map(m => '<li>' + m.body + '</li>').join('') + '</ul>';
+    }
+    fetchMessages();
+  </script>
+</body>
+</html>

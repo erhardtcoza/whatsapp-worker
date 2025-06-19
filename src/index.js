@@ -13,12 +13,14 @@ export default {
         `SELECT * FROM messages ORDER BY timestamp DESC LIMIT 300`
       ).all();
 
-const grouped = {};
-for (const m of messages.results) {
-  if (!grouped[m.from_number]) grouped[m.from_number] = [];
-  grouped[m.from_number].push(m);
-}
-return Response.json(grouped);
+      const grouped = {};
+      for (const m of messages.results) {
+        if (!grouped[m.from_number]) grouped[m.from_number] = [];
+        grouped[m.from_number].push(m);
+      }
+
+      return Response.json(grouped); // ✅ this return must close the if-block
+    }
 
     // Tag update endpoint
     if (pathname === '/admin/tag' && request.method === 'POST') {

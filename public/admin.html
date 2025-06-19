@@ -1,65 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vinet Admin Portal</title>
+  <meta charset="UTF-8" />
+  <title>Vinet WhatsApp Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f5f5f5; }
+    h1 { color: #b00; }
+    input, textarea, select, button {
+      padding: 0.5rem; margin: 0.25rem 0; width: 100%;
+    }
+    section { background: white; padding: 1rem; margin-bottom: 2rem; border-radius: 5px; }
+  </style>
 </head>
 <body>
   <h1>Vinet WhatsApp Admin Portal</h1>
-  <h2>Auto-Reply Settings</h2>
-<div id="settings"></div>
-<button onclick="saveSettings()">💾 Save Settings</button>
 
-<script>
-  async function loadSettings() {
-    const res = await fetch('/admin/settings');
-    const settings = await res.json();
-    const html = Object.entries(settings).map(([tag, s]) => `
-      <fieldset>
-        <legend>${tag.toUpperCase()}</legend>
-        <label>Enabled: <input type="checkbox" id="${tag}-enabled" ${s.enabled ? 'checked' : ''}></label><br>
-        <label>Start Time: <input type="time" id="${tag}-start" value="${s.start}"></label><br>
-        <label>End Time: <input type="time" id="${tag}-end" value="${s.end}"></label><br>
-        <label>Auto-Reply Message:<br>
-          <textarea id="${tag}-message" rows="2" style="width:100%;">${s.message}</textarea>
-        </label>
-      </fieldset>
-    `).join('');
-    document.getElementById('settings').innerHTML = html;
-  }
+  <section>
+    <h2>📣 Broadcast Message</h2>
+    <textarea id="broadcastMessage" rows="4" placeholder="Your message here..."></textarea>
+    <input id="broadcastNumbers" placeholder="Comma-separated numbers e.g. 27830001111,27830002222" />
+    <button onclick="sendBroadcast()">Send Broadcast</button>
+  </section>
 
-  async function saveSettings() {
-    const tags = ['support', 'sales', 'accounts', 'lead'];
-    const updated = {};
-    tags.forEach(tag => {
-      updated[tag] = {
-        enabled: document.getElementById(`${tag}-enabled`).checked,
-        start: document.getElementById(`${tag}-start`).value,
-        end: document.getElementById(`${tag}-end`).value,
-        message: document.getElementById(`${tag}-message`).value.trim()
-      };
-    });
-    await fetch('/admin/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated)
-    });
-    alert("✅ Settings saved!");
-  }
+  <section>
+    <h2>✉️ Send Direct Message</h2>
+    <input id="toNumber" placeholder="WhatsApp number e.g. 2783..." />
+    <textarea id="directMessage" rows="3" placeholder="Type your message..."></textarea>
+    <button onclick="sendMessage()">Send Message</button>
+  </section>
 
-  loadSettings();
-</script>
+  <section>
+    <h2>🕓 Recent Messages</h2>
+    <div id="messages">Loading...</div>
+  </section>
 
-  <div id="messages">Loading...</div>
   <script>
-    async function fetchMessages() {
+    async function loadMessages() {
       const res = await fetch('/admin/messages');
       const messages = await res.json();
       document.getElementById('messages').innerHTML =
-        '<ul>' + messages.map(m => '<li>' + m.body + '</li>').join('') + '</ul>';
+        '<ul>' + messages.map(m =>
+          `<li><b>${m.direction.toUpperCase()}</b> ${m.from_number}: ${m.body} <small>(${new Date(m.timestamp).toLocaleString()})</small></li>`
+        ).join('') + '</ul>';
     }
-    fetchMessages();
+
+    async function sendMessage() {
+      const to = document.getElementById('toNumber').value.trim();
+      const body = document.getElementById('directMessage').value.trim();
+      await fetch('/admin/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, body })
+      });
+      alert('Message sent');
+      loadMessages();
+    }
+
+    async function sendBroadcast() {
+      const message = document.getElementById('broadcastMessage').value.trim();
+      const numbers = document.getElementById('broadcastNumbers').value
+        .split(',').map(n => n.trim()).filter(n => n.length > 0);
+      await fetch('/admin/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, numbers })
+      });
+      alert('Broadcast sent');
+      loadMessages();
+    }
+
+    loadMessages();
   </script>
 </body>
 </html>

@@ -19,37 +19,44 @@
   <h1>Vinet WhatsApp Admin Portal</h1>
   <div id="messages">Loading...</div>
 
-  <script>
-    async function loadMessages() {
-      const res = await fetch('/admin/messages');
-      const messages = await res.json();
-      const html = '<table><tr><th>From</th><th>Body</th><th>Tag</th><th>Time</th></tr>' +
-        messages.map(m => `
-          <tr>
-            <td>${m.from_number}</td>
-            <td>${m.body}</td>
-            <td>
-              <select onchange="updateTag('${m.id}', this.value)">
-                ${['none','support','sales','accounts','lead'].map(tag => `
-                  <option value="${tag}" ${tag === m.tag ? 'selected' : ''}>${tag}</option>
-                `).join('')}
-              </select>
-            </td>
-            <td>${new Date(m.timestamp).toLocaleString()}</td>
-          </tr>
-        `).join('') + '</table>';
-      document.getElementById('messages').innerHTML = html;
+<script>
+  async function loadMessages() {
+    const res = await fetch('/admin/messages');
+    const grouped = await res.json();
+
+    let html = '';
+    for (const from in grouped) {
+      html += `<h3>📱 ${from}</h3>`;
+      html += `<table><tr><th>Time</th><th>Direction</th><th>Message</th><th>Tag</th></tr>`;
+      html += grouped[from].map(m => `
+        <tr>
+          <td>${new Date(m.timestamp).toLocaleString()}</td>
+          <td>${m.direction}</td>
+          <td>${m.body}</td>
+          <td>
+            <select onchange="updateTag('${m.id}', this.value)">
+              ${['none','support','sales','accounts','lead','admin'].map(tag => `
+                <option value="${tag}" ${tag === m.tag ? 'selected' : ''}>${tag}</option>
+              `).join('')}
+            </select>
+          </td>
+        </tr>
+      `).join('');
+      html += `</table>`;
     }
 
-    async function updateTag(id, tag) {
-      await fetch('/admin/tag', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, tag })
-      });
-    }
+    document.getElementById('messages').innerHTML = html;
+  }
 
-    loadMessages();
-  </script>
+  async function updateTag(id, tag) {
+    await fetch('/admin/tag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, tag })
+    });
+  }
+
+  loadMessages();
+</script>
 </body>
 </html>

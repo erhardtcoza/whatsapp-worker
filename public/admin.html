@@ -7,6 +7,50 @@
 </head>
 <body>
   <h1>Vinet WhatsApp Admin Portal</h1>
+  <h2>Auto-Reply Settings</h2>
+<div id="settings"></div>
+<button onclick="saveSettings()">💾 Save Settings</button>
+
+<script>
+  async function loadSettings() {
+    const res = await fetch('/admin/settings');
+    const settings = await res.json();
+    const html = Object.entries(settings).map(([tag, s]) => `
+      <fieldset>
+        <legend>${tag.toUpperCase()}</legend>
+        <label>Enabled: <input type="checkbox" id="${tag}-enabled" ${s.enabled ? 'checked' : ''}></label><br>
+        <label>Start Time: <input type="time" id="${tag}-start" value="${s.start}"></label><br>
+        <label>End Time: <input type="time" id="${tag}-end" value="${s.end}"></label><br>
+        <label>Auto-Reply Message:<br>
+          <textarea id="${tag}-message" rows="2" style="width:100%;">${s.message}</textarea>
+        </label>
+      </fieldset>
+    `).join('');
+    document.getElementById('settings').innerHTML = html;
+  }
+
+  async function saveSettings() {
+    const tags = ['support', 'sales', 'accounts', 'lead'];
+    const updated = {};
+    tags.forEach(tag => {
+      updated[tag] = {
+        enabled: document.getElementById(`${tag}-enabled`).checked,
+        start: document.getElementById(`${tag}-start`).value,
+        end: document.getElementById(`${tag}-end`).value,
+        message: document.getElementById(`${tag}-message`).value.trim()
+      };
+    });
+    await fetch('/admin/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated)
+    });
+    alert("✅ Settings saved!");
+  }
+
+  loadSettings();
+</script>
+
   <div id="messages">Loading...</div>
   <script>
     async function fetchMessages() {

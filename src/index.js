@@ -1,68 +1,43 @@
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const { pathname, searchParams } = url;
+    const { pathname, searchParams } = new URL(request.url);
 
-    // Admin HTML served from site bucket
+    // Admin UI
     if (pathname === '/admin') {
       return env.ASSETS.fetch(request);
     }
-    // Send message from admin
-    if (pathname === '/admin/send' && request.method === 'POST') {
-      const { to, body } = await request.json();
-      const res = await fetch(`https://graph.facebook.com/v18.0/${env.PHONE_NUMBER_ID}/messages`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to,
-          text: { body },
-          type: 'text'
-        })
-      });
-      const json = await res.json();
-      console.log('WhatsApp Send Response:', json);
 
-      if (json.messages) {
-        await env.DB.prepare(`INSERT INTO messages (from_number, body, timestamp, direction, tag) VALUES (?, ?, ?, ?, ?)`)
-          .bind(to, body, Date.now(), 'out', 'admin').run();
-        return new Response('Message sent successfully');
-      } else {
-        return new Response('Failed to send message: ' + (json.error?.message || 'Unknown error'), { status: 500 });
+    // Grouped messages endpoint
+    if (pathname === '/admin/messages') {
+      const messages = await env.DB.prepare(
+        `SELECT * FROM messages ORDER BY timestamp DESC LIMIT 300`
+      ).all();
+
+      const grouped = {};
+      for (const m of messages.results) {
+        if (!grouped[m.from_number]) grouped[m.from_number] = [];
+        grouped[m.from_number].push(m);
       }
+
+      return Response.json(grouped);
     }
-    
-if (pathname === '/admin/messages') {
-  const messages = await env.DB.prepare(
-    `SELECT * FROM messages ORDER BY timestamp DESC LIMIT 300`
-  ).all();
 
-  // Group by from_number
-  const grouped = {};
-  for (const m of messages.results) {
-    if (!grouped[m.from_number]) grouped[m.from_number] = [];
-    grouped[m.from_number].push(m);
-  }
-
-  return Response.json(grouped);
-}
-
-
-    // Tag messages
+    // Tag update endpoint
     if (pathname === '/admin/tag' && request.method === 'POST') {
       const { id, tag } = await request.json();
-      await env.DB.prepare('UPDATE messages SET tag = ? WHERE id = ?').bind(tag, id).run();
+      await env.DB.prepare('UPDATE messages SET tag = ? WHERE id = ?')
+        .bind(tag, id)
+        .run();
       return new Response('Tag updated');
     }
 
     // Webhook verification
     if (pathname === '/webhook' && request.method === 'GET') {
-      const mode = searchParams.get('hub.mode');
-      const token = searchParams.get('hub.verify_token');
-      const challenge = searchParams.get('hub.challenge');
+      const u = new URL(request.url);
+      const mode = u.searchParams.get('hub.mode');
+      const token = u.searchParams.get('hub.verify_token');
+      const challenge = u.searchParams.get('hub.challenge');
+
       if (mode === 'subscribe' && token === env.VERIFY_TOKEN) {
         return new Response(challenge, { status: 200 });
       }
@@ -71,4 +46,4 @@ if (pathname === '/admin/messages') {
 
     return new Response('Not Found', { status: 404 });
   }
-};
+}

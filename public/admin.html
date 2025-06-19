@@ -2,75 +2,102 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Vinet WhatsApp Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vinet Admin Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: sans-serif; padding: 2rem; background: #f5f5f5; }
+    body { font-family: sans-serif; padding: 2rem; background: #f9f9f9; }
     h1 { color: #b00; }
-    input, textarea, select, button {
-      padding: 0.5rem; margin: 0.25rem 0; width: 100%;
-    }
-    section { background: white; padding: 1rem; margin-bottom: 2rem; border-radius: 5px; }
+    input, select, textarea, button { margin: 0.3rem; padding: 0.5rem; font-size: 1rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; }
+    th { background: #eee; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .card { background: #fff; padding: 1rem; border: 1px solid #ddd; border-radius: 5px; flex: 1; min-width: 300px; }
+    .flex { display: flex; align-items: center; gap: 0.5rem; }
   </style>
 </head>
 <body>
   <h1>Vinet WhatsApp Admin Portal</h1>
 
-  <section>
-    <h2>📣 Broadcast Message</h2>
-    <textarea id="broadcastMessage" rows="4" placeholder="Your message here..."></textarea>
-    <input id="broadcastNumbers" placeholder="Comma-separated numbers e.g. 27830001111,27830002222" />
-    <button onclick="sendBroadcast()">Send Broadcast</button>
-  </section>
+  <div class="row">
+    <div class="card">
+      <h3>Send Message</h3>
+      <div class="flex">
+        <label>To:</label><input type="text" id="to" placeholder="Phone Number" />
+      </div>
+      <textarea id="message" placeholder="Type your message..." rows="3" cols="40"></textarea><br />
+      <button onclick="sendMessage()">Send</button>
+    </div>
 
-  <section>
-    <h2>✉️ Send Direct Message</h2>
-    <input id="toNumber" placeholder="WhatsApp number e.g. 2783..." />
-    <textarea id="directMessage" rows="3" placeholder="Type your message..."></textarea>
-    <button onclick="sendMessage()">Send Message</button>
-  </section>
+    <div class="card">
+      <h3>Auto-Replies Settings</h3>
+      <div id="settings">
+        <p>Coming next step…</p>
+      </div>
+    </div>
+  </div>
 
-  <section>
-    <h2>🕓 Recent Messages</h2>
+  <div class="card">
+    <h3>Messages</h3>
+    <label>Filter by tag:</label>
+    <select id="tagFilter" onchange="loadMessages()">
+      <option value="">All</option>
+      <option value="support">Support</option>
+      <option value="sales">Sales</option>
+      <option value="accounts">Accounts</option>
+      <option value="lead">Lead</option>
+    </select>
     <div id="messages">Loading...</div>
-  </section>
+  </div>
 
   <script>
     async function loadMessages() {
-      const res = await fetch('/admin/messages');
-      const messages = await res.json();
-      document.getElementById('messages').innerHTML =
-        '<ul>' + messages.map(m =>
-          `<li><b>${m.direction.toUpperCase()}</b> ${m.from_number}: ${m.body} <small>(${new Date(m.timestamp).toLocaleString()})</small></li>`
-        ).join('') + '</ul>';
+      const tag = document.getElementById('tagFilter').value
+      const res = await fetch('/admin/messages' + (tag ? '?tag=' + tag : ''))
+      const messages = await res.json()
+      const html = '<table><tr><th>From</th><th>Body</th><th>Tag</th><th>Time</th></tr>' +
+        messages.map(m => `
+          <tr>
+            <td>${m.from_number}</td>
+            <td>${m.body}</td>
+            <td>
+              <select onchange="updateTag('${m.id}', this.value)">
+                ${['support','sales','accounts','lead',''].map(tag =>
+                  `<option value="${tag}" ${tag === m.tag ? 'selected' : ''}>${tag || 'none'}</option>`
+                ).join('')}
+              </select>
+            </td>
+            <td>${new Date(m.timestamp).toLocaleString()}</td>
+          </tr>
+        `).join('') + '</table>'
+      document.getElementById('messages').innerHTML = html
+    }
+
+    async function updateTag(id, tag) {
+      await fetch('/admin/tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, tag })
+      })
     }
 
     async function sendMessage() {
-      const to = document.getElementById('toNumber').value.trim();
-      const body = document.getElementById('directMessage').value.trim();
-      await fetch('/admin/send', {
+      const to = document.getElementById('to').value.trim()
+      const message = document.getElementById('message').value.trim()
+      if (!to || !message) return alert('Please fill in both fields.')
+
+      const res = await fetch('/admin/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, body })
-      });
-      alert('Message sent');
-      loadMessages();
+        body: JSON.stringify({ to, message })
+      })
+      const out = await res.json()
+      alert(out?.error?.message || 'Message sent.')
+      document.getElementById('message').value = ''
+      loadMessages()
     }
 
-    async function sendBroadcast() {
-      const message = document.getElementById('broadcastMessage').value.trim();
-      const numbers = document.getElementById('broadcastNumbers').value
-        .split(',').map(n => n.trim()).filter(n => n.length > 0);
-      await fetch('/admin/broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, numbers })
-      });
-      alert('Broadcast sent');
-      loadMessages();
-    }
-
-    loadMessages();
+    loadMessages()
   </script>
 </body>
 </html>

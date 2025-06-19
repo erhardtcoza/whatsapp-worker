@@ -7,6 +7,33 @@ export default {
     if (pathname === '/admin') {
       return env.ASSETS.fetch(request);
     }
+    // Send message from admin
+    if (pathname === '/admin/send' && request.method === 'POST') {
+      const { to, body } = await request.json();
+      const res = await fetch(`https://graph.facebook.com/v18.0/${env.PHONE_NUMBER_ID}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to,
+          text: { body },
+          type: 'text'
+        })
+      });
+      const json = await res.json();
+      console.log('WhatsApp Send Response:', json);
+
+      if (json.messages) {
+        await env.DB.prepare(`INSERT INTO messages (from_number, body, timestamp, direction, tag) VALUES (?, ?, ?, ?, ?)`)
+          .bind(to, body, Date.now(), 'out', 'admin').run();
+        return new Response('Message sent successfully');
+      } else {
+        return new Response('Failed to send message: ' + (json.error?.message || 'Unknown error'), { status: 500 });
+      }
+    }
 
     // List messages
     if (pathname === '/admin/messages') {

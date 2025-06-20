@@ -41,6 +41,7 @@ export default {
       if (mode === 'subscribe' && token === env.VERIFY_TOKEN) {
         return new Response(challenge, { status: 200 });
       }
+          return env.ASSETS.fetch(request);
       return new Response('Forbidden', { status: 403 });
     }
 

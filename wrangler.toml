@@ -7,8 +7,12 @@ binding = "DB"
 database_name = "vinet-whatsapp-db"
 database_id = "2e1228d6-b6f6-494e-b4de-9cdd508854a0"
 
+[assets]
+directory = "./public/"
+html_handling = "auto-trailing-slash"
+
 [[kv_namespaces]]
-binding = "__vinet-whatsapp-worker-workers_sites_assets "
+binding = "__vinet-whatsapp-worker-workers_sites_assets"
 id = "b6f6282ab5874ebfba0aa6600771bf8e"
 
 [site]

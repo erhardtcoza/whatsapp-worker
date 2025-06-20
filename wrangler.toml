@@ -10,6 +10,7 @@ database_id = "2e1228d6-b6f6-494e-b4de-9cdd508854a0"
 [assets]
 directory = "./public/"
 html_handling = "auto-trailing-slash"
+run_worker_first = true
 
 [vars]
 PHONE_NUMBER_ID = "104043025887306"

@@ -1,30 +1,37 @@
-
-async function sendWhatsAppMessage(to, message, env) {
-  const url = `https://graph.facebook.com/v17.0/${env.PHONE_NUMBER_ID}/messages`;
-  const body = {
-    messaging_product: 'whatsapp',
-    to,
-    type: 'text',
-    text: { body: message }
-  };
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  const json = await res.json();
-  console.log('WhatsApp Send Response:', json);
-  return json;
-}
-
 export default {
   async fetch(request, env, ctx) {
-    const { pathname } = new URL(request.url);
+    const { pathname, searchParams } = new URL(request.url);
 
-    // WEBHOOK VERIFICATION
+    // Admin UI
+    if (pathname === '/admin') {
+      return env.ASSETS.fetch(request);
+    }
+
+    // Grouped messages endpoint
+    if (pathname === '/admin/messages') {
+      const messages = await env.DB.prepare(
+        `SELECT * FROM messages ORDER BY timestamp DESC LIMIT 300`
+      ).all();
+
+      const grouped = {};
+      for (const m of messages.results) {
+        if (!grouped[m.from_number]) grouped[m.from_number] = [];
+        grouped[m.from_number].push(m);
+      }
+
+      return Response.json(grouped); // ✅ this return must close the if-block
+    }
+
+    // Tag update endpoint
+    if (pathname === '/admin/tag' && request.method === 'POST') {
+      const { id, tag } = await request.json();
+      await env.DB.prepare('UPDATE messages SET tag = ? WHERE id = ?')
+        .bind(tag, id)
+        .run();
+      return new Response('Tag updated');
+    }
+
+    // Webhook verification
     if (pathname === '/webhook' && request.method === 'GET') {
       const u = new URL(request.url);
       const mode = u.searchParams.get('hub.mode');
@@ -37,61 +44,6 @@ export default {
       return new Response('Forbidden', { status: 403 });
     }
 
-    // ADMIN HTML
-    if (pathname === '/admin') {
-      const html = await env.__vinet-whatsapp-worker-workers_sites_assets.get('admin.html', 'text');
-      return new Response(html, { headers: { 'Content-Type': 'text/html' } });
-    }
-
-    // ADMIN MESSAGES API
-    if (pathname === '/admin/messages') {
-      const url = new URL(request.url);
-      const searchParams = url.searchParams;
-      const tag = searchParams.get('tag');
-
-      let query = 'SELECT * FROM messages';
-      let bindParams = [];
-
-      if (tag) {
-        query += ' WHERE tag = ?';
-        bindParams.push(tag);
-      }
-
-      query += ' ORDER BY timestamp DESC LIMIT 100';
-      const messages = await env.DB.prepare(query).bind(...bindParams).all();
-      return Response.json(messages.results);
-    }
-
-    // SEND MESSAGE API
-    if (pathname === '/admin/send' && request.method === 'POST') {
-      const body = await request.json();
-      const { to, message } = body;
-
-      const payload = {
-        messaging_product: 'whatsapp',
-        to,
-        text: { body: message }
-      };
-
-      const response = await fetch(`https://graph.facebook.com/v18.0/${env.PHONE_NUMBER_ID}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${env.WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
-      console.log("WhatsApp Send Response:", result);
-
-      await env.DB.prepare(
-        'INSERT INTO messages (from_number, body, direction, timestamp) VALUES (?, ?, ?, ?)'
-      ).bind(to, message, 'out', Date.now()).run();
-
-      return Response.json({ success: true });
-    }
-
     return new Response('Not Found', { status: 404 });
   }
-};
+}

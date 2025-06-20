@@ -2,19 +2,159 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vinet Admin Portal</title>
+  <title>Vinet WhatsApp Admin Portal</title>
+  <link rel="icon" href="https://static.vinet.co.za/logo.jpeg">
+  <style>
+    body { background: #fff; font-family: Arial,sans-serif; margin: 0; }
+    header { background: #fff; border-bottom: 3px solid #d6001c; display: flex; align-items: center; padding: 10px 20px; }
+    header img { height: 40px; }
+    header h1 { color: #d6001c; margin-left: 15px; font-size: 28px; }
+    .controls { padding: 12px 20px; border-bottom: 1px solid #eee; background: #f7f7f7; }
+    .controls input, .controls select { margin-right: 8px; }
+    .messages { padding: 18px 20px; }
+    .group { border: 1px solid #eee; border-radius: 12px; margin-bottom: 22px; background: #fafafb; }
+    .group h3 { margin: 0; padding: 8px 16px; background: #222; color: #fff; border-radius: 12px 12px 0 0; font-size: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 6px 8px; border: 1px solid #ccc; font-size: 15px; }
+    th { background: #d6001c; color: #fff; }
+    td img { max-width: 80px; border-radius: 6px; }
+    .tag-select { min-width: 110px; }
+    .action-btn { background: #d6001c; color: #fff; border: none; border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+    .action-btn:hover { background: #a10015; }
+    .pagination { text-align: right; margin: 18px 22px 0 0; }
+    .pagination button { margin-left: 8px; }
+    .reply-box { display: none; }
+  </style>
 </head>
 <body>
-  <h1>Vinet WhatsApp Admin Portal</h1>
-  <div id="messages">Loading...</div>
+  <header>
+    <img src="https://static.vinet.co.za/logo.jpeg" alt="Vinet Logo">
+    <h1>Vinet WhatsApp Admin Portal</h1>
+  </header>
+
+  <div class="controls">
+    <input id="search" placeholder="Search..." oninput="fetchMessages(1)">
+    <select id="filterTag" onchange="fetchMessages(1)">
+      <option value="">All tags</option>
+      <option value="support">Support</option>
+      <option value="sales">Sales</option>
+      <option value="accounts">Accounts</option>
+      <option value="lead">Lead</option>
+    </select>
+    <select id="filterDir" onchange="fetchMessages(1)">
+      <option value="">All directions</option>
+      <option value="incoming">Incoming</option>
+      <option value="outgoing">Outgoing</option>
+    </select>
+    <button class="action-btn" onclick="prevPage()">Prev</button>
+    <button class="action-btn" onclick="nextPage()">Next</button>
+    <span id="pageInfo"></span>
+  </div>
+
+  <div class="messages" id="messages"></div>
+
   <script>
-    async function fetchMessages() {
-      const res = await fetch('/admin/messages');
-      const messages = await res.json();
-      document.getElementById('messages').innerHTML =
-        '<ul>' + messages.map(m => '<li>' + m.body + '</li>').join('') + '</ul>';
+    let page = 1, perPage = 50, maxPage = 1;
+    async function fetchMessages(goToPage) {
+      if (goToPage) page = goToPage;
+      const q = document.getElementById('search').value;
+      const tag = document.getElementById('filterTag').value;
+      const dir = document.getElementById('filterDir').value;
+      const res = await fetch(`/admin/messages?page=${page}&perPage=${perPage}&q=${encodeURIComponent(q)}&tag=${tag}&dir=${dir}`);
+      const { groups, totalPages } = await res.json();
+      maxPage = totalPages;
+      document.getElementById('pageInfo').textContent = `Page ${page} of ${maxPage}`;
+      renderGroups(groups);
     }
+    function renderGroups(groups) {
+      const messagesDiv = document.getElementById('messages');
+      if (!groups || Object.keys(groups).length === 0) {
+        messagesDiv.innerHTML = '<p>No messages found.</p>'; return;
+      }
+      messagesDiv.innerHTML = Object.entries(groups).map(([num, msgs]) => `
+        <div class="group">
+          <h3>${num}</h3>
+          <table>
+            <tr>
+              <th>Body / Media</th>
+              <th>Tag</th>
+              <th>Dir</th>
+              <th>Time</th>
+              <th>Customer ID</th>
+              <th>Actions</th>
+            </tr>
+            ${msgs.map(m => `
+              <tr>
+                <td>${renderBody(m)}</td>
+                <td>${renderTagDropdown(m)}</td>
+                <td>${m.direction || ''}</td>
+                <td>${new Date(m.timestamp*1000).toLocaleString()}</td>
+                <td>${m.customer_id || ''}</td>
+                <td>
+                  <button class="action-btn" onclick="showReply(${m.id}, '${num}')">Reply</button>
+                </td>
+              </tr>
+              <tr id="reply-box-${m.id}" class="reply-box">
+                <td colspan="6">
+                  <input id="reply-input-${m.id}" style="width:60%">
+                  <button class="action-btn" onclick="sendReply(${m.id}, '${num}')">Send</button>
+                  <button class="action-btn" onclick="hideReply(${m.id})">Cancel</button>
+                </td>
+              </tr>
+            `).join('')}
+          </table>
+        </div>
+      `).join('');
+    }
+    function renderBody(m) {
+      // Image from R2
+      if (
+        m.body.startsWith("https://0ba56c77d4b26cfe73302244e6df2a5d.r2.cloudflarestorage.com/vinet-whatsapp-images/") &&
+        m.body.match(/\.(jpg|jpeg|png|gif)$/i)
+      ) {
+        return `<img src="${m.body}" alt="image">`;
+      }
+      // Google Maps link
+      if (m.body.startsWith("https://maps.google.com/")) {
+        return `<a href="${m.body}" target="_blank">📍Location</a>`;
+      }
+      // Just text
+      return m.body;
+    }
+    function renderTagDropdown(m) {
+      const tags = ['support', 'sales', 'accounts', 'lead'];
+      return `<select class="tag-select" onchange="updateTag(${m.id}, this.value)">
+        ${['unverified', ...tags].map(t => `<option value="${t}"${(m.tag||'unverified')===t?' selected':''}>${t}</option>`).join('')}
+      </select>`;
+    }
+    function showReply(id, number) {
+      document.getElementById(`reply-box-${id}`).style.display = '';
+      document.getElementById(`reply-input-${id}`).focus();
+    }
+    function hideReply(id) {
+      document.getElementById(`reply-box-${id}`).style.display = 'none';
+    }
+    async function sendReply(id, number) {
+      const body = document.getElementById(`reply-input-${id}`).value;
+      if (!body) return alert("Type a message!");
+      await fetch('/admin/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, number, body })
+      });
+      hideReply(id);
+      fetchMessages();
+    }
+    async function updateTag(id, tag) {
+      await fetch('/admin/tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, tag })
+      });
+      fetchMessages();
+    }
+    function nextPage() { if (page < maxPage) { page++; fetchMessages(); } }
+    function prevPage() { if (page > 1) { page--; fetchMessages(); } }
     fetchMessages();
   </script>
 </body>
